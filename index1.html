@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Expense Tracker</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
+<style>
+* { box-sizing: border-box; font-family: 'Inter', sans-serif; }
+body { background: #f5f6fa; color: #333; margin: 0; padding: 20px; }
+h1, h2 { color: #2f3640; }
+.container { max-width: 800px; margin: 0 auto; background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+input, select, button, textarea {
+  padding: 8px 10px; margin: 5px 0; width: 100%;
+  border: 1px solid #ccc; border-radius: 6px; font-size: 15px;
+}
+button { background: #0984e3; color: white; cursor: pointer; font-weight: 600; }
+button:hover { background: #74b9ff; }
+hr { border: none; border-top: 1px solid #eee; margin: 20px 0; }
+.group, .expense, .settlement { background: #f9f9f9; border-radius: 8px; padding: 10px 15px; margin: 8px 0; }
+pre { background: #eee; padding: 10px; border-radius: 8px; overflow-x: auto; }
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>💰 Expense Tracker</h1>
+
+  <h2>1️⃣ Create Group</h2>
+  <label>Group Name</label>
+  <input id="groupName" placeholder="e.g., Goa Trip">
+  <label>Members (use | to separate names)</label>
+  <input id="groupMembers" placeholder="e.g., Deep | Rishabh | Bhavya">
+  <button onclick="createGroup()">Create Group</button>
+  <div id="groupsList"></div>
+
+  <hr>
+
+  <h2>2️⃣ Add Expense</h2>
+  <label>Group Name</label>
+  <input id="expenseGroup" placeholder="Same as created group">
+  <label>Expense Name</label>
+  <input id="expenseName" placeholder="e.g., Dinner at beach">
+  <label>Category</label>
+  <input id="expenseCategory" placeholder="e.g., Food, Travel">
+  <label>Amount</label>
+  <input id="expenseAmount" type="number" step="0.01" placeholder="e.g., 900">
+  <label>Payer</label>
+  <input id="expensePayer" placeholder="Who paid? (must be member)">
+  <label>Members involved (use | to separate)</label>
+  <input id="expenseMembers" placeholder="e.g., Deep | Rishabh | Bhavya">
+  <label>Shares (optional numeric values separated by |)</label>
+  <input id="expenseShares" placeholder="Leave empty for equal split. Example: 2 | 1 | 1">
+  <label>Date</label>
+  <input id="expenseDate" type="date">
+  <button onclick="addExpense()">Add Expense</button>
+  <div id="expenseMsg"></div>
+
+  <hr>
+
+  <h2>3️⃣ View Expenses</h2>
+  <input id="viewGroupName" placeholder="Enter group name">
+  <button onclick="showExpenses()">Show Expenses</button>
+  <div id="expenseList"></div>
+
+  <hr>
+
+  <h2>4️⃣ Calculate Settlement</h2>
+  <input id="settleGroupName" placeholder="Enter group name">
+  <button onclick="calculateSettlement()">Calculate</button>
+  <div id="settlementResult"></div>
+</div>
+
+<script type="module">
+import initModule from './expense.js';
+const Module = await initModule();
+
+function createGroup() {
+  const name = document.getElementById("groupName").value.trim();
+  const members = document.getElementById("groupMembers").value.trim();
+  const result = JSON.parse(Module.createGroup(name, members));
+  if (result.ok) {
+    alert("✅ Group created successfully!");
+    listGroups();
+  } else {
+    alert("❌ Error: " + result.error);
+  }
+}
+
+function listGroups() {
+  const list = JSON.parse(Module.listGroups());
+  const div = document.getElementById("groupsList");
+  div.innerHTML = "<h3>Groups:</h3>";
+  list.forEach(g => {
+    div.innerHTML += <div class='group'>📘 ${g.name}</div>;
+  });
+}
+
+function addExpense() {
+  const group = document.getElementById("expenseGroup").value.trim();
+  const name = document.getElementById("expenseName").value.trim();
+  const cat = document.getElementById("expenseCategory").value.trim();
+  const amt = parseFloat(document.getElementById("expenseAmount").value);
+  const payer = document.getElementById("expensePayer").value.trim();
+  const members = document.getElementById("expenseMembers").value.trim();
+  const shares = document.getElementById("expenseShares").value.trim();
+  const date = document.getElementById("expenseDate").value;
+
+  const result = JSON.parse(Module.addGroupExpense(group, name, cat, amt, payer, members, shares, date));
+  const msg = document.getElementById("expenseMsg");
+  if (result.error) {
+    msg.innerHTML = <span style='color:red'>❌ ${result.error}</span>;
+  } else if (result.warning) {
+    msg.innerHTML = <span style='color:orange'>⚠ ${result.warning}</span>;
+  } else {
+    msg.innerHTML = <span style='color:green'>✅ Expense added successfully!</span>;
+  }
+}
+
+function showExpenses() {
+  const group = document.getElementById("viewGroupName").value.trim();
+  const result = JSON.parse(Module.showGroupExpenses(group));
+  const div = document.getElementById("expenseList");
+
+  if (result.error) {
+    div.innerHTML = <span style='color:red'>❌ ${result.error}</span>;
+    return;
+  }
+
+  div.innerHTML = <h3>Expenses for ${result.group}</h3>;
+  if (result.expenses.length === 0) {
+    div.innerHTML += "<i>No expenses yet.</i>";
+    return;
+  }
+  result.expenses.forEach(e => {
+    div.innerHTML += `
+      <div class='expense'>
+        <b>${e.name}</b> (${e.category})<br>
+        Amount: ₹${e.amount}<br>
+        Payer: ${e.payer}<br>
+        Members: ${e.members.join(", ")}<br>
+        Shares: ${e.shares.join(" | ")}<br>
+        Date: ${e.date}
+      </div>`;
+  });
+}
+
+function calculateSettlement() {
+  const group = document.getElementById("settleGroupName").value.trim();
+  const result = JSON.parse(Module.calculateGroupSettlement(group));
+  const div = document.getElementById("settlementResult");
+  if (result.error) {
+    div.innerHTML = <span style='color:red'>❌ ${result.error}</span>;
+    return;
+  }
+
+  div.innerHTML = <h3>💳 Settlements for ${result.group}</h3>;
+  if (result.settlements.length === 0) {
+    div.innerHTML += "<i>Everyone is settled up!</i>";
+    return;
+  }
+
+  result.settlements.forEach(s => {
+    div.innerHTML += <div class='settlement'>${s.from} → ${s.to}: ₹${s.amount.toFixed(2)}</div>;
+  });
+}
+
+window.onload = listGroups;
+</script>
+</body>
+</html>
