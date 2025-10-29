@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Expense Tracker</title>
+  <title>Expense Tracker (Firebase)</title>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
   <style>
     * { box-sizing: border-box; font-family: 'Inter', sans-serif; }
@@ -80,9 +80,74 @@
       font-size: 13px;
       color: #555;
     }
+
+    /* Login screen */
+    #loginScreen {
+      position: fixed;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: white;
+      z-index: 1000;
+    }
+    #loginCard {
+      width: 360px;
+      padding: 28px;
+      border-radius: 12px;
+      box-shadow: 0 8px 30px rgba(0,0,0,0.08);
+      text-align: center;
+      background: #fff;
+    }
+    #loginCard h2 { margin: 6px 0 18px 0; color: #2f3640; }
+    .googleBtn {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 14px;
+      border-radius: 8px;
+      background: #4285F4;
+      color: white;
+      font-weight: 600;
+      cursor: pointer;
+      border: none;
+    }
+    .googleBtn:hover { opacity: 0.95; }
+
+    /* Sign Out floating bottom-right */
+    #signOutBtn {
+      position: fixed;
+      right: 18px;
+      bottom: 18px;
+      z-index: 9999;
+      padding: 10px 14px;
+      border-radius: 10px;
+      background: #ff6b6b;
+      color: white;
+      border: none;
+      box-shadow: 0 8px 20px rgba(0,0,0,0.2);
+      cursor: pointer;
+      font-weight: 600;
+    }
+    #signOutBtn:hover { transform: translateY(-2px); transition: transform .12s ease; }
+
+    #authStatus {
+      position: fixed;
+      left: 18px;
+      bottom: 22px;
+      z-index: 9999;
+      font-size: 13px;
+      color: #333;
+      background: rgba(255,255,255,0.9);
+      padding: 6px 8px;
+      border-radius: 8px;
+      box-shadow: 0 6px 14px rgba(0,0,0,0.06);
+    }
+
     @media (max-width: 600px) {
       body { padding: 10px; }
       .container { padding: 15px; }
+      #loginCard { width: 90%; }
     }
 
     /* ---------------- Dark Mode Styles (Cozy Warm Dark - Option 3) ---------------- */
@@ -109,7 +174,6 @@
     body.dark-mode .group, body.dark-mode .expense, body.dark-mode .settlement {
       background: #33322f;
     }
-    /* Balance rows in dark mode: green and red tints on warm dark background */
     body.dark-mode .balance-positive {
       background: rgba(0,160,80,0.12);
       color: #f5deb3;
@@ -150,481 +214,126 @@
   </style>
 </head>
 <body>
+
+  <!-- Dark mode toggle -->
   <button id="darkModeToggle" title="Toggle Dark Mode">🌓</button>
 
-  <div class="container">
-    <h1>💰 Expense Tracker</h1>
-
-    <!-- ========== CREATE GROUP SECTION ========== -->
-    <h2>1️⃣ Create Group</h2>
-    <input id="groupName" placeholder="Group name (e.g., Goa Trip)">
-    <input id="groupMembers" placeholder="Members separated by | (e.g., Deep | Rishabh | Bhavya)">
-    <button onclick="createGroup()">Create Group</button>
-    <div id="groupsList"></div>
-    <hr>
-
-    <!-- ========== ADD EXPENSE SECTION ========== -->
-    <h2>2️⃣ Add Expense</h2>
-    <input id="expenseGroup" placeholder="Group name">
-    <input id="expenseName" placeholder="Expense name">
-    <input id="expenseCategory" placeholder="Category (e.g., Food)">
-    <input id="expenseAmount" type="number" step="0.01" placeholder="Amount">
-    <input id="expensePayer" placeholder="Who paid?">
-    <input id="expenseMembers" placeholder="Members separated by |">
-    <input id="expenseShares" placeholder="Shares (optional, e.g. 2|1|1)">
-    <input id="expenseDate" type="date">
-    <button onclick="addExpense()">Add Expense</button>
-    <div id="expenseMsg"></div>
-    <hr>
-
-    <!-- ========== VIEW / MANAGE EXPENSES SECTION ========== -->
-    <h2>3️⃣ Manage Expenses</h2>
-    <input id="viewGroupName" placeholder="Enter group name">
-    <label>Filter:</label>
-    <select id="filterType">
-      <option value="all">All Expenses</option>
-      <option value="month">This Month Only</option>
-    </select>
-    <button onclick="showExpenses()">Show Expenses</button>
-    <div id="expenseList"></div>
-    <hr>
-
-    <!-- ========== SETTLEMENT SECTION ========== -->
-    <h2>4️⃣ Settlement</h2>
-    <input id="settleGroupName" placeholder="Enter group name">
-    <button onclick="calculateSettlement()">Calculate Settlement</button>
-    <div id="settlementResult"></div>
-
-    <!-- New: Balance Summary button -->
-    <div style="margin-top:10px;">
-      <button onclick="showBalanceSummary()">🧾 Show Member Balances</button>
-      <div id="balanceSummary"></div>
-      <!-- Last saved timestamp placed here (option 3) -->
-      <div id="lastSaved" aria-live="polite"></div>
+  <!-- Login Screen (shown until sign in) -->
+  <div id="loginScreen" aria-hidden="false">
+    <div id="loginCard" role="dialog" aria-modal="true">
+      <h2>Expense Tracker</h2>
+      <p style="margin-bottom:16px;color:#666">Sign in with Google to access and share groups.</p>
+      <button id="googleSignInBtn" class="googleBtn">
+        <svg width="18" height="18" viewBox="0 0 48 48" style="vertical-align:middle">
+          <path fill="#EA4335" d="M24 9.5c3.9 0 7.3 1.4 9.9 3.7l7.3-7.3C35.8 2 30.2 0 24 0 14.6 0 6.9 5.2 3 12.9l8.9 6.9C13.8 13 18.5 9.5 24 9.5z"/>
+          <path fill="#34A853" d="M46.5 24c0-1.6-.1-3.2-.3-4.7H24v9.1h12.8c-.5 2.7-2 5-4.3 6.6l6.8 5.3C43.7 36.8 46.5 30.9 46.5 24z"/>
+          <path fill="#4A90E2" d="M13.9 29.8c-1.2-3.6-1.2-7.6 0-11.2L4.9 11.6C2 16.3 0.9 21.7 0.9 27.5s1.1 11.2 4 15.9l9-5.1z"/>
+          <path fill="#FBBC05" d="M24 48c6.2 0 11.8-2 16-5.4l-7.6-6.2c-2.3 1.6-5.1 2.5-8.4 2.5-5.5 0-10.2-3.5-12-8.4l-9 5.1C6.9 42.8 14.6 48 24 48z"/>
+        </svg>
+        <span>Sign in with Google</span>
+      </button>
     </div>
-
-    <hr>
-    <button onclick="clearAllData()" style="background:#d63031">🧹 Clear All Data</button>
   </div>
 
+  <!-- Floating Sign Out button (bottom-right) -->
+  <button id="signOutBtn" style="display:none">Sign Out</button>
+  <div id="authStatus" style="display:none"></div>
+
+  <!-- Main App container (hidden until login) -->
+  <div id="app" style="display:none">
+    <div class="container" id="mainContainer">
+      <h1>💰 Expense Tracker</h1>
+
+      <!-- ========== CREATE GROUP SECTION ========== -->
+      <h2>1️⃣ Create Group</h2>
+      <input id="groupName" placeholder="Group name (e.g., Goa Trip)">
+      <input id="groupMembers" placeholder="Members separated by | (e.g., Deep | Rishabh | Bhavya)">
+      <button id="createGroupBtn">Create Group</button>
+      <div id="groupsList"></div>
+      <hr>
+
+      <!-- ========== ADD EXPENSE SECTION ========== -->
+      <h2>2️⃣ Add Expense</h2>
+      <input id="expenseGroup" placeholder="Group ID (use share link's g=...)">
+      <input id="expenseName" placeholder="Expense name">
+      <input id="expenseCategory" placeholder="Category (e.g., Food)">
+      <input id="expenseAmount" type="number" step="0.01" placeholder="Amount">
+      <input id="expensePayer" placeholder="Who paid?">
+      <input id="expenseMembers" placeholder="Members separated by |">
+      <input id="expenseShares" placeholder="Shares (optional, e.g. 2|1|1)">
+      <input id="expenseDate" type="date">
+      <button id="addExpenseBtn">Add Expense</button>
+      <div id="expenseMsg"></div>
+      <hr>
+
+      <!-- ========== VIEW / MANAGE EXPENSES SECTION ========== -->
+      <h2>3️⃣ Manage Expenses</h2>
+      <input id="viewGroupName" placeholder="Enter group ID">
+      <label>Filter:</label>
+      <select id="filterType">
+        <option value="all">All Expenses</option>
+        <option value="month">This Month Only</option>
+      </select>
+      <button id="listenGroupBtn">Open Group (Realtime)</button>
+      <div id="expenseList"></div>
+      <hr>
+
+      <!-- ========== SETTLEMENT SECTION ========== -->
+      <h2>4️⃣ Settlement</h2>
+      <input id="settleGroupName" placeholder="Enter group ID">
+      <button id="calcSettleBtn">Calculate Settlement</button>
+      <div id="settlementResult"></div>
+
+      <!-- New: Balance Summary button -->
+      <div style="margin-top:10px;">
+        <button id="balanceBtn">🧾 Show Member Balances</button>
+        <div id="balanceSummary"></div>
+        <!-- Last saved timestamp -->
+        <div id="lastSaved" aria-live="polite"></div>
+      </div>
+
+      <hr>
+      <button id="clearLocalBtn" style="background:#d63031">🧹 Clear Local WASM State</button>
+    </div>
+  </div>
+
+  <!-- Existing WebAssembly script -->
   <script src="expense.js"></script>
-  <script>
-  initModule({
-    locateFile: (file) => file.endsWith('.wasm') ? './expense.wasm' : file
-  }).then(Module => {
-    console.log("✅ WebAssembly module loaded");
 
-    // ---------------------------
-    // Persistence in JS (new)
-    // ---------------------------
-    // Data format we save in localStorage:
-    // { savedAt: 1234567890, groups: [ { name: "...", members: ["A","B"], expenses: [ { id, name, category, amount, payer, members:[], shares:[], date } ] } ] }
+  <!-- Firebase + App logic (module) -->
+  <script type="module">
+    // ---------- Firebase imports (modular) ----------
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-app.js";
+    import { getAuth, GoogleAuthProvider, signInWithPopup, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-auth.js";
+    import {
+      getFirestore, collection, doc, setDoc, addDoc, getDoc, updateDoc, deleteDoc,
+      onSnapshot, serverTimestamp, query, orderBy
+    } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-firestore.js";
 
-    function nowTimestamp() {
-      return Date.now();
-    }
-    function formatTime(ts) {
-      try {
-        const d = new Date(ts);
-        return d.toLocaleTimeString();
-      } catch(e) { return ''; }
-    }
-
-    function saveDataToLocalStorage() {
-      try {
-        // Get list of groups
-        const groupsRaw = Module.ccall("listGroups", "string", [], []);
-        let groupList = [];
-        try { groupList = JSON.parse(groupsRaw); }
-        catch(e) { console.warn("listGroups parse error", e); groupList = []; }
-
-        const toSave = { savedAt: nowTimestamp(), groups: [] };
-
-        // For each group, get members and expenses
-        (groupList || []).forEach(gobj => {
-          const gname = gobj && gobj.name ? gobj.name : gobj;
-          // get members
-          let membersArr = [];
-          try {
-            const memRaw = Module.ccall("getGroupMembers", "string", ["string"], [gname]);
-            membersArr = JSON.parse(memRaw);
-          } catch (e) {
-            console.warn("getGroupMembers parse error for", gname, e);
-            membersArr = [];
-          }
-
-          // get expenses
-          let expensesArr = [];
-          try {
-            const expRaw = Module.ccall("showGroupExpenses", "string", ["string"], [gname]);
-            const expRes = JSON.parse(expRaw);
-            expensesArr = expRes && expRes.expenses ? expRes.expenses : [];
-          } catch (e) {
-            console.warn("showGroupExpenses parse error for", gname, e);
-            expensesArr = [];
-          }
-
-          toSave.groups.push({
-            name: gname,
-            members: membersArr,
-            expenses: expensesArr
-          });
-        });
-
-        localStorage.setItem("expense_tracker_data", JSON.stringify(toSave));
-        // update last saved display
-        const lastSavedEl = document.getElementById("lastSaved");
-        lastSavedEl.textContent = `Last saved at ${formatTime(toSave.savedAt)}`;
-        console.log("💾 Data saved to localStorage (JS-managed)", toSave);
-      } catch (err) {
-        console.error("Error saving data to localStorage:", err);
-      }
-    }
-
-    function loadDataFromLocalStorage() {
-      try {
-        const saved = localStorage.getItem("expense_tracker_data");
-        if (!saved) return; // nothing to load
-
-        const parsed = JSON.parse(saved);
-
-        // Clear WASM state first
-        try {
-          Module.ccall("clearAllData", "void", [], []);
-        } catch(e) {
-          console.warn("clearAllData call failed or not present:", e);
-        }
-
-        // Recreate groups and expenses
-        (parsed.groups || []).forEach(g => {
-          try {
-            const membersStr = Array.isArray(g.members) ? g.members.join("|") : "";
-            // call createGroup(name, membersStr)
-            const resRaw = Module.ccall("createGroup", "string", ["string","string"], [g.name, membersStr]);
-            try {
-              const res = JSON.parse(resRaw);
-              if (res.error) {
-                console.warn("createGroup error for", g.name, res.error);
-              }
-            } catch(e) {
-              console.warn("createGroup parse error", e);
-            }
-            // add expenses
-            (g.expenses || []).forEach(e => {
-              try {
-                // addGroupExpense expects: groupName,name,category,amount,payer,members_str,shares_str,date
-                const membersStrExp = Array.isArray(e.members) ? e.members.join("|") : "";
-                // shares format: if shares array present, join by |
-                const sharesStr = Array.isArray(e.shares) ? e.shares.join("|") : "";
-                const amountNum = parseFloat(e.amount) || 0;
-                const addResRaw = Module.ccall("addGroupExpense", "string",
-                  ["string","string","string","number","string","string","string","string"],
-                  [g.name, e.name || "", e.category || "", amountNum, e.payer || "", membersStrExp, sharesStr, e.date || ""]);
-                try {
-                  const addRes = JSON.parse(addResRaw);
-                  if (addRes.error) {
-                    console.warn("addGroupExpense error", addRes.error, "for group", g.name, "expense", e);
-                  }
-                } catch(err2) {
-                  console.warn("addGroupExpense parse error", err2);
-                }
-              } catch(ex) {
-                console.error("Failed to re-add expense", e, ex);
-              }
-            });
-          } catch(ex) {
-            console.error("Error recreating group", g, ex);
-          }
-        });
-
-        // Update UI and last saved indicator
-        if (parsed.savedAt) {
-          const lastSavedEl = document.getElementById("lastSaved");
-          lastSavedEl.textContent = `Last saved at ${formatTime(parsed.savedAt)}`;
-        }
-        console.log("📥 Data reconstructed from localStorage");
-      } catch (err) {
-        console.error("Error loading data from localStorage:", err);
-      }
-    }
-
-    // Provide a manual export function (optional) in case user wants to download JSON
-    window.exportDataAsJSON = function() {
-      const saved = localStorage.getItem("expense_tracker_data");
-      if (!saved) { alert("No saved data."); return; }
-      const blob = new Blob([saved], {type: "application/json"});
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `expense_data_${Date.now()}.json`;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      URL.revokeObjectURL(url);
+    // ---------- Firebase config (your values) ----------
+    const firebaseConfig = {
+      apiKey: "AIzaSyCnq8EpcuAVwNNAAgucldSfw8Us0KcIW4o",
+      authDomain: "spendsense-70738.firebaseapp.com",
+      projectId: "spendsense-70738",
+      storageBucket: "spendsense-70738.appspot.com",
+      messagingSenderId: "1077112042111",
+      appId: "1:1077112042111:web:e06e294d5cb6f4793f454a"
     };
 
-    // Load saved data on startup by reconstructing module state
-    loadDataFromLocalStorage();
+    // ---------- Initialize Firebase ----------
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const provider = new GoogleAuthProvider();
+    const db = getFirestore(app);
 
-    // ========== CREATE GROUP ==========
-    window.createGroup = function() {
-      const name = groupName.value.trim();
-      const members = groupMembers.value.trim();
-      const result = JSON.parse(Module.ccall("createGroup", "string", ["string","string"], [name, members]));
-      if (result.ok) {
-        saveDataToLocalStorage();
-        alert("✅ Group created successfully!");
-      } else {
-        alert("❌ " + result.error);
-      }
-    };
+    // UI elements
+    const loginScreen = document.getElementById('loginScreen');
+    const googleSignInBtn = document.getElementById('googleSignInBtn');
+    const appDiv = document.getElementById('app');
+    const signOutBtn = document.getElementById('signOutBtn');
+    const authStatus = document.getElementById('authStatus');
 
-    // ========== ADD EXPENSE ==========
-    window.addExpense = function() {
-      const g = expenseGroup.value.trim();
-      const n = expenseName.value.trim();
-      const c = expenseCategory.value.trim();
-      const a = parseFloat(expenseAmount.value);
-      const p = expensePayer.value.trim();
-      const m = expenseMembers.value.trim();
-      const s = expenseShares.value.trim();
-      const d = expenseDate.value;
-
-      const result = JSON.parse(Module.ccall("addGroupExpense", "string",
-        ["string","string","string","number","string","string","string","string"],
-        [g,n,c,a,p,m,s,d]));
-
-      if (result.error) {
-        expenseMsg.innerHTML = `<span style='color:red'>❌ ${result.error}</span>`;
-      } else {
-        expenseMsg.innerHTML = `<span style='color:green'>✅ Expense added!</span>`;
-        saveDataToLocalStorage();
-      }
-    };
-
-    // ========== SHOW EXPENSES ==========
-    window.showExpenses = function() {
-      const group = viewGroupName.value.trim();
-      const filter = document.getElementById("filterType").value;
-      const result = JSON.parse(Module.ccall("showGroupExpenses", "string", ["string"], [group]));
-      const div = document.getElementById("expenseList");
-
-      if (result.error) {
-        div.innerHTML = `<span style='color:red'>❌ ${result.error}</span>`;
-        return;
-      }
-
-      if (!result.expenses || result.expenses.length === 0) {
-        div.innerHTML = `<h3>${result.group}</h3><i>No expenses added yet.</i>`;
-        return;
-      }
-
-      div.innerHTML = `<h3>${result.group}</h3>`;
-
-      const now = new Date();
-      const currentMonth = now.getMonth();
-      const currentYear = now.getFullYear();
-
-      let totalAll = 0;
-      let totalThisMonth = 0;
-
-      result.expenses.forEach(e => {
-        const expenseDate = new Date(e.date);
-        totalAll += parseFloat(e.amount) || 0;
-
-        let isThisMonth = false;
-        if (!isNaN(expenseDate.getTime())) {
-          if (expenseDate.getMonth() === currentMonth && expenseDate.getFullYear() === currentYear) {
-            totalThisMonth += parseFloat(e.amount) || 0;
-            isThisMonth = true;
-          }
-        }
-
-        if (filter === "all" || (filter === "month" && isThisMonth)) {
-          div.innerHTML += `
-            <div class='expense'>
-              <b>${e.name}</b> (${e.category}) - ₹${parseFloat(e.amount).toFixed(2)}<br>
-              <b>Payer:</b> ${e.payer}<br>
-              <b>Date:</b> ${e.date}<br>
-              <div class='expense-actions'>
-                <button onclick="editExpense('${result.group}','${e.id}')">✏ Edit</button>
-                <button onclick="deleteExpense('${result.group}','${e.id}')">🗑 Delete</button>
-              </div>
-            </div>`;
-        }
-      });
-
-      div.innerHTML += `
-        <hr>
-        <h3>💰 Total Expense for ${result.group}: ₹${totalAll.toFixed(2)}</h3>
-        <h4>📅 Total Spent in ${now.toLocaleString('default', { month: 'long' })} ${currentYear}: ₹${totalThisMonth.toFixed(2)}</h4>
-      `;
-    };
-
-    // ========== EDIT EXPENSE ==========
-    window.editExpense = function(group, id) {
-      const newName = prompt("New name:");
-      const newCat = prompt("New category:");
-      const newAmt = parseFloat(prompt("New amount:"));
-      const newPayer = prompt("New payer:");
-      const newMem = prompt("New members (| separated):");
-      const newShares = prompt("New shares (| separated):");
-      const newDate = prompt("New date (YYYY-MM-DD):");
-
-      const res = JSON.parse(Module.ccall("editExpense","string",
-        ["string","string","string","string","number","string","string","string","string"],
-        [group,id,newName,newCat,newAmt,newPayer,newMem,newShares,newDate]));
-
-      if (!res.error) {
-        saveDataToLocalStorage();
-        alert("✅ Updated!");
-      } else {
-        alert("❌ " + res.error);
-      }
-      showExpenses();
-    };
-
-    // ========== DELETE EXPENSE ==========
-    window.deleteExpense = function(group, id) {
-      if (!confirm("Are you sure you want to delete this expense?")) return;
-      const res = JSON.parse(Module.ccall("deleteExpense", "string", ["string","string"], [group, id]));
-      if (!res.error) {
-        saveDataToLocalStorage();
-        alert("✅ Deleted!");
-      } else {
-        alert("❌ " + res.error);
-      }
-      showExpenses();
-    };
-
-    // ========== CALCULATE SETTLEMENT ==========
-    window.calculateSettlement = function() {
-      const g = settleGroupName.value.trim();
-      const result = JSON.parse(Module.ccall("calculateGroupSettlement", "string", ["string"], [g]));
-      const div = document.getElementById("settlementResult");
-
-      if (result.error) {
-        div.innerHTML = `<span style='color:red'>❌ ${result.error}</span>`;
-        return;
-      }
-
-      div.innerHTML = `<h3>💳 Settlement</h3>`;
-      if (result.settlements.length === 0) {
-        div.innerHTML += "<i>Everyone is settled!</i>";
-        return;
-      }
-
-      result.settlements.forEach(s => {
-        div.innerHTML += `<div class='settlement'>${s.from} → ${s.to}: ₹${parseFloat(s.amount).toFixed(2)}</div>`;
-      });
-    };
-
-    // ========== SHOW BALANCE SUMMARY (NEW) ==========
-    window.showBalanceSummary = function() {
-      const group = settleGroupName.value.trim() || viewGroupName.value.trim() || expenseGroup.value.trim();
-      const container = document.getElementById("balanceSummary");
-      container.innerHTML = ""; // clear previous
-
-      if (!group) {
-        container.innerHTML = `<span style='color:red'>❌ Please enter a group name in the Settlement or Manage section.</span>`;
-        return;
-      }
-
-      // get group members
-      const membersResRaw = Module.ccall("getGroupMembers", "string", ["string"], [group]);
-      let membersRes;
-      try {
-        membersRes = JSON.parse(membersResRaw);
-      } catch (e) {
-        container.innerHTML = `<span style='color:red'>❌ ${e.message || 'Failed to parse group members'}</span>`;
-        return;
-      }
-      if (membersRes.error) {
-        container.innerHTML = `<span style='color:red'>❌ ${membersRes.error}</span>`;
-        return;
-      }
-      const members = Array.isArray(membersRes) ? membersRes : [];
-
-      // fetch expenses
-      const raw = Module.ccall("showGroupExpenses", "string", ["string"], [group]);
-      let result;
-      try {
-        result = JSON.parse(raw);
-      } catch (e) {
-        container.innerHTML = `<span style='color:red'>❌ ${e.message || 'Failed to parse expenses'}</span>`;
-        return;
-      }
-      if (result.error) {
-        container.innerHTML = `<span style='color:red'>❌ ${result.error}</span>`;
-        return;
-      }
-
-      // initialize totals
-      const totals = {}; // { name: { paid: number, share: number } }
-      members.forEach(m => totals[m] = { paid: 0, share: 0 });
-
-      // accumulate from expenses
-      if (result.expenses && Array.isArray(result.expenses)) {
-        result.expenses.forEach(exp => {
-          const amt = parseFloat(exp.amount) || 0;
-          // add to payer paid
-          if (exp.payer && totals.hasOwnProperty(exp.payer)) {
-            totals[exp.payer].paid += amt;
-          } else {
-            if (!totals[exp.payer]) totals[exp.payer] = { paid: amt, share: 0 };
-            else totals[exp.payer].paid += amt;
-          }
-          // add shares to each member
-          if (exp.members && exp.shares && exp.members.length === exp.shares.length) {
-            for (let i = 0; i < exp.members.length; ++i) {
-              const mem = exp.members[i];
-              const sh = parseFloat(exp.shares[i]) || 0;
-              if (!totals[mem]) totals[mem] = { paid: 0, share: sh };
-              else totals[mem].share += sh;
-            }
-          } else if (exp.members && exp.members.length) {
-            // fallback: equal split if shares missing
-            const equal = amt / exp.members.length;
-            exp.members.forEach(mem => {
-              if (!totals[mem]) totals[mem] = { paid: 0, share: equal };
-              else totals[mem].share += equal;
-            });
-          }
-        });
-      }
-
-      // Prepare array for sorting and rendering
-      const rows = [];
-      for (const name in totals) {
-        const paid = totals[name].paid || 0;
-        const share = totals[name].share || 0;
-        const balance = paid - share; // positive -> should receive; negative -> owes
-        rows.push({ name, paid, share, balance });
-      }
-
-      // sort: creditors (positive balances) first by descending balance, then debtors
-      rows.sort((a,b) => {
-        const aPos = a.balance > 0 ? 1 : (a.balance < 0 ? -1 : 0);
-        const bPos = b.balance > 0 ? 1 : (b.balance < 0 ? -1 : 0);
-        if (aPos !== bPos) return bPos - aPos;
-        return b.balance - a.balance;
-      });
-
-      // Build table
-      let html = `<h3>📘 Balance Summary — ${result.group}</h3>`;
-      html += `<table><thead><tr><th>Member</th><th>Paid (₹)</th><th>Share (₹)</th><th>Balance (₹)</th></tr></thead><tbody>`;
-      rows.forEach(r => {
-        const cls = r.balance > 0.005 ? 'balance-positive' : (r.balance < -0.005 ? 'balance-negative' : 'balance-zero');
-        const balStr = (r.balance >= 0 ? '+' : '') + r.balance.toFixed(2);
-        html += `<tr class="${cls}"><td>${r.name}</td><td>₹${r.paid.toFixed(2)}</td><td>₹${r.share.toFixed(2)}</td><td class="balance-amount">₹${balStr}</td></tr>`;
-      });
-      html += `</tbody></table>`;
-
-      container.innerHTML = html;
-      container.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-    };
-
-    // ---------------- Dark Mode Toggle Logic ----------------
+    // Dark mode toggle logic (keeps localStorage for UI preference)
     const darkToggle = document.getElementById('darkModeToggle');
     function applyDarkMode(enabled) {
       if (enabled) document.body.classList.add('dark-mode');
@@ -635,15 +344,441 @@
       const enabled = !document.body.classList.contains('dark-mode');
       applyDarkMode(enabled);
     });
-    // Apply persisted preference on load
     (function() {
       const pref = localStorage.getItem('expense_dark_mode');
       if (pref === '1') applyDarkMode(true);
     })();
 
-    // expose Module for debugging if needed
-    window._Module = Module;
+    // ---------- Auth flow ----------
+    let currentUser = null;
+
+    googleSignInBtn.addEventListener('click', async () => {
+      try {
+        await signInWithPopup(auth, provider);
+        // onAuthStateChanged will handle UI
+      } catch (err) {
+        alert("Sign-in failed: " + (err.message || err));
+        console.error(err);
+      }
+    });
+
+    signOutBtn.addEventListener('click', async () => {
+      try {
+        await signOut(auth);
+        // UI will update via onAuthStateChanged
+      } catch (err) {
+        console.error("Sign-out failed", err);
+      }
+    });
+
+    // When auth state changes, show/hide login and app
+    onAuthStateChanged(auth, async (user) => {
+      currentUser = user;
+      if (user) {
+        // Show app
+        loginScreen.style.display = 'none';
+        appDiv.style.display = 'block';
+        signOutBtn.style.display = 'block';
+        authStatus.style.display = 'block';
+        authStatus.textContent = `Signed in: ${user.displayName || user.email}`;
+        // If URL has ?g=GROUPID, auto-join and open
+        const urlParams = new URLSearchParams(window.location.search);
+        const gid = urlParams.get('g');
+        if (gid) {
+          await joinGroupAndListen(gid);
+          // populate group id fields for convenience
+          document.getElementById('expenseGroup').value = gid;
+          document.getElementById('viewGroupName').value = gid;
+          document.getElementById('settleGroupName').value = gid;
+        }
+      } else {
+        // Show login
+        loginScreen.style.display = 'flex';
+        appDiv.style.display = 'none';
+        signOutBtn.style.display = 'none';
+        authStatus.style.display = 'none';
+      }
+    });
+
+    // ---------- Firestore helpers ----------
+    async function createGroupFirestore(name, membersArray = []) {
+  if (!currentUser) throw new Error("Sign in required");
+  const groupRef = doc(collection(db, 'groups'));
+  const groupId = groupRef.id;
+  const members = (membersArray || []).map(m => {
+    if (typeof m === 'string') return { uid: null, name: m.trim(), email: null };
+    return m;
   });
+  members.push({ uid: currentUser.uid, name: currentUser.displayName || currentUser.email, email: currentUser.email });
+  const groupData = {
+    name,
+    creatorId: currentUser.uid,
+    creatorName: currentUser.displayName || currentUser.email,
+    members,
+    createdAt: serverTimestamp(),
+    updatedAt: serverTimestamp()
+  };
+  await setDoc(groupRef, groupData);
+  console.log("Created group:", groupId, groupData); // <- debug log
+  return groupId;
+}
+
+
+    async function joinGroup(groupId) {
+      if (!currentUser) throw new Error("Sign in required");
+      const gRef = doc(db, 'groups', groupId);
+      const snap = await getDoc(gRef);
+      if (!snap.exists()) throw new Error("Group not found");
+      const data = snap.data();
+      const members = data.members || [];
+      const found = members.find(m => (m.uid && m.uid === currentUser.uid) || (m.email && m.email === currentUser.email));
+      if (!found) {
+        members.push({ uid: currentUser.uid, name: currentUser.displayName || currentUser.email, email: currentUser.email });
+        await updateDoc(gRef, { members, updatedAt: serverTimestamp() });
+      }
+      return { id: snap.id, ...data };
+    }
+
+    async function addExpenseToGroup(groupId, expenseObj) {
+  if (!currentUser) throw new Error("Sign in required");
+
+  // add to subcollection (this works even if parent doesn't exist)
+  const colRef = collection(db, 'groups', groupId, 'expenses');
+  const docRef = await addDoc(colRef, {
+    name: expenseObj.name || '',
+    category: expenseObj.category || '',
+    amount: Number(expenseObj.amount || 0),
+    payer: expenseObj.payer || '',
+    members: expenseObj.members || [],
+    shares: expenseObj.shares || [],
+    date: expenseObj.date || new Date().toISOString().slice(0,10),
+    addedByUid: currentUser.uid,
+    addedByName: currentUser.displayName || currentUser.email,
+    createdAt: serverTimestamp()
+  });
+
+  // Safely ensure parent exists / update updatedAt — use setDoc with merge:true
+  await setDoc(doc(db, 'groups', groupId), { updatedAt: serverTimestamp() }, { merge: true });
+
+  return docRef.id;
+}
+
+
+    async function editExpenseFirestore(groupId, expenseId, updates) {
+      await updateDoc(doc(db, 'groups', groupId, 'expenses', expenseId), updates);
+      await updateDoc(doc(db, 'groups', groupId), { updatedAt: serverTimestamp() });
+    }
+
+    async function deleteExpenseFirestore(groupId, expenseId) {
+      await deleteDoc(doc(db, 'groups', groupId, 'expenses', expenseId));
+      await updateDoc(doc(db, 'groups', groupId), { updatedAt: serverTimestamp() });
+    }
+
+    function generateShareLink(groupId) {
+      const origin = window.location.origin + window.location.pathname;
+      return `${origin}?g=${groupId}`;
+    }
+
+    // ---------- Realtime listener and rendering ----------
+    let currentUnsubGroup = null;
+    let currentUnsubExpenses = null;
+    let currentListeningGroupId = null;
+
+    async function joinGroupAndListen(groupId) {
+      try {
+        if (!currentUser) { alert("Please sign in with Google first."); return; }
+        await joinGroup(groupId);
+        const gRef = doc(db, 'groups', groupId);
+
+        // detach old listeners
+        if (currentUnsubGroup) currentUnsubGroup();
+        if (currentUnsubExpenses) currentUnsubExpenses();
+
+        currentUnsubGroup = onSnapshot(gRef, gSnap => {
+          if (!gSnap.exists()) {
+            document.getElementById('expenseList').innerHTML = '<i>Group not found or deleted.</i>';
+            return;
+          }
+          const gData = { id: gSnap.id, ...gSnap.data() };
+          const lastSavedEl = document.getElementById('lastSaved');
+          if (gData.updatedAt && typeof gData.updatedAt.toDate === 'function') {
+            lastSavedEl.textContent = `Last updated at ${gData.updatedAt.toDate().toLocaleString()}`;
+          } else lastSavedEl.textContent = '';
+          // expenses listener:
+          const q = query(collection(db, 'groups', groupId, 'expenses'), orderBy('createdAt','asc'));
+          currentUnsubExpenses = onSnapshot(q, snap => {
+            const exps = [];
+            snap.forEach(d => exps.push({ id: d.id, ...d.data() }));
+            renderExpensesRealtime(gData, exps);
+          });
+        });
+
+        currentListeningGroupId = groupId;
+      } catch (err) {
+        alert("Failed to open group: " + err.message);
+        console.error(err);
+      }
+    }
+
+    function renderExpensesRealtime(groupData, expenses) {
+      const out = document.getElementById('expenseList');
+      out.innerHTML = `<h3>${groupData.name} (ID: ${groupData.id})</h3>`;
+      if (!Array.isArray(expenses) || expenses.length === 0) {
+        out.innerHTML += '<i>No expenses yet</i>';
+        return;
+      }
+      expenses.forEach(e => {
+        const div = document.createElement('div');
+        div.className = 'expense';
+        div.innerHTML = `
+          <b>${e.name}</b> (${e.category}) - ₹${Number(e.amount).toFixed(2)}<br>
+          <b>Payer:</b> ${e.payer} <br>
+          <b>Added by:</b> ${e.addedByName || ''} <br>
+          <b>Date:</b> ${e.date || ''} <br>
+        `;
+        // If current user is creator show edit/delete controls
+        if (currentUser && groupData.creatorId === currentUser.uid) {
+        
+          const btnDel = document.createElement('button');
+          btnDel.textContent = '🗑 Delete';
+          btnDel.onclick = async () => {
+            if (!confirm("Delete this expense?")) return;
+            try {
+              await deleteExpenseFirestore(groupData.id, e.id);
+              alert('Deleted');
+            } catch (err) { alert('Delete failed: ' + err.message); }
+          };
+          const btnEdit = document.createElement('button');
+          btnEdit.textContent = '✏ Edit';
+          btnEdit.onclick = async () => {
+            const newName = prompt("New name:", e.name);
+            if (newName == null) return;
+            try {
+              await editExpenseFirestore(groupData.id, e.id, { name: newName });
+              alert('Updated');
+            } catch (err) { alert('Update failed: ' + err.message); }
+          };
+          const actions = document.createElement('div');
+          actions.className = 'expense-actions';
+          actions.appendChild(btnEdit);
+          actions.appendChild(btnDel);
+          div.appendChild(actions);
+        }
+        out.appendChild(div);
+      });
+    }
+
+    // ---------- Balance & Settlement utilities ----------
+    function computeBalancesFromExpenses(members, expenses) {
+      const balances = {};
+      (members || []).forEach(m => {
+        const key = (typeof m === 'string') ? m : (m.name || m.email || m.uid);
+        balances[key] = 0;
+      });
+
+      (expenses || []).forEach(e => {
+        const amt = Number(e.amount || 0);
+        if (Array.isArray(e.members) && Array.isArray(e.shares) && e.members.length === e.shares.length) {
+          for (let i=0;i<e.members.length;i++) {
+            const mem = e.members[i];
+            const sh = Number(e.shares[i] || 0);
+            balances[mem] = (balances[mem] || 0) - sh;
+          }
+        } else if (Array.isArray(e.members) && e.members.length > 0) {
+          const equal = amt / e.members.length;
+          e.members.forEach(mem => {
+            balances[mem] = (balances[mem] || 0) - equal;
+          });
+        }
+        // payer receives full amount
+        balances[e.payer] = (balances[e.payer] || 0) + amt;
+      });
+
+      const result = [];
+      for (const k in balances) {
+        let paid = 0, share = 0;
+        (expenses || []).forEach(e => {
+          if (e.payer === k) paid += Number(e.amount || 0);
+          if (Array.isArray(e.members) && Array.isArray(e.shares) && e.members.length === e.shares.length) {
+            e.members.forEach((m,i) => { if (m === k) share += Number(e.shares[i] || 0); });
+          } else if (Array.isArray(e.members) && e.members.length > 0) {
+            if (e.members.includes(k)) share += Number(e.amount || 0) / e.members.length;
+          }
+        });
+        result.push({ name: k, paid, share, balance: balances[k] });
+      }
+      return result;
+    }
+
+    function computeSettlementsFromBalances(balancesArr) {
+      const creditors = [], debtors = [];
+      balancesArr.forEach(b => {
+        if (b.balance > 0.005) creditors.push({ name: b.name, amount: b.balance });
+        else if (b.balance < -0.005) debtors.push({ name: b.name, amount: -b.balance });
+      });
+      creditors.sort((a,b) => b.amount - a.amount);
+      debtors.sort((a,b) => b.amount - a.amount);
+      const settlements = [];
+      let i=0,j=0;
+      while (i<debtors.length && j<creditors.length) {
+        const pay = Math.min(debtors[i].amount, creditors[j].amount);
+        if (pay > 0.005) settlements.push({ from: debtors[i].name, to: creditors[j].name, amount: pay });
+        debtors[i].amount -= pay;
+        creditors[j].amount -= pay;
+        if (debtors[i].amount <= 0.005) i++;
+        if (creditors[j].amount <= 0.005) j++;
+      }
+      return settlements;
+    }
+
+    // ---------- Wire UI buttons to Firebase functions ----------
+    document.getElementById('createGroupBtn').onclick = async () => {
+      try {
+        if (!currentUser) { alert("Please sign in with Google first"); return; }
+        const name = document.getElementById('groupName').value.trim();
+        const membersRaw = document.getElementById('groupMembers').value.trim();
+        const members = membersRaw ? membersRaw.split('|').map(s => s.trim()) : [];
+        const groupId = await createGroupFirestore(name, members);
+        const link = generateShareLink(groupId);
+        prompt('Share this invite link with collaborators (they must sign in with Google):', link);
+      } catch (err) {
+        alert("Create group failed: " + err.message);
+      }
+    };
+
+    document.getElementById('addExpenseBtn').onclick = async () => {
+      try {
+        if (!currentUser) { alert("Please sign in with Google first"); return; }
+        const groupId = document.getElementById('expenseGroup').value.trim();
+        if (!groupId) { alert("Enter group ID"); return; }
+        const expenseObj = {
+          name: document.getElementById('expenseName').value.trim(),
+          category: document.getElementById('expenseCategory').value.trim(),
+          amount: parseFloat(document.getElementById('expenseAmount').value) || 0,
+          payer: document.getElementById('expensePayer').value.trim(),
+          members: (document.getElementById('expenseMembers').value || '').split('|').map(s => s.trim()).filter(Boolean),
+          shares: (document.getElementById('expenseShares').value || '').split('|').map(s => parseFloat(s)).filter(v => !isNaN(v)),
+          date: document.getElementById('expenseDate').value || new Date().toISOString().slice(0,10)
+        };
+        await addExpenseToGroup(groupId, expenseObj);
+        document.getElementById('expenseMsg').innerHTML = `<span style='color:green'>✅ Expense added and synced!</span>`;
+      } catch (err) {
+        console.error(err);
+        document.getElementById('expenseMsg').innerHTML = `<span style='color:red'>❌ ${err.message}</span>`;
+      }
+    };
+
+    document.getElementById('listenGroupBtn').onclick = async () => {
+      const groupId = document.getElementById('viewGroupName').value.trim();
+      if (!groupId) { alert("Enter group ID"); return; }
+      await joinGroupAndListen(groupId);
+      // populate other fields
+      document.getElementById('expenseGroup').value = groupId;
+      document.getElementById('settleGroupName').value = groupId;
+    };
+
+    document.getElementById('balanceBtn').onclick = async () => {
+      const groupId = document.getElementById('settleGroupName').value.trim() || document.getElementById('viewGroupName').value.trim() || document.getElementById('expenseGroup').value.trim();
+      if (!groupId) { alert("Enter group ID in one of the fields"); return; }
+      try {
+        const gSnap = await getDoc(doc(db, 'groups', groupId));
+        if (!gSnap.exists()) { alert("Group not found"); return; }
+        const gData = gSnap.data();
+        const expensesQuery = query(collection(db, 'groups', groupId, 'expenses'), orderBy('createdAt','asc'));
+        const snap = await new Promise((res, rej) => {
+          const unsub = onSnapshot(expensesQuery, s => { unsub(); res(s); }, e => rej(e));
+        });
+        const exps = [];
+        snap.forEach(d => exps.push({ id: d.id, ...d.data() }));
+        const members = (gData.members || []).map(m => (typeof m === 'string') ? { name: m } : m);
+        const memberNames = members.map(m => m.name || m.email || m.uid).filter(Boolean);
+        const compiledExpenses = exps.map(e => ({
+          name: e.name, category: e.category, amount: e.amount, payer: e.payer,
+          members: Array.isArray(e.members) ? e.members : [],
+          shares: Array.isArray(e.shares) ? e.shares : [],
+          date: e.date
+        }));
+        const balancesArr = computeBalancesFromExpenses(memberNames, compiledExpenses);
+        const container = document.getElementById('balanceSummary');
+        let rows = balancesArr;
+        rows.sort((a,b) => {
+          const aPos = a.balance > 0 ? 1 : (a.balance < 0 ? -1 : 0);
+          const bPos = b.balance > 0 ? 1 : (b.balance < 0 ? -1 : 0);
+          if (aPos !== bPos) return bPos - aPos;
+          return b.balance - a.balance;
+        });
+        let html = `<h3>📘 Balance Summary — ${gData.name}</h3>`;
+        html += `<table><thead><tr><th>Member</th><th>Paid (₹)</th><th>Share (₹)</th><th>Balance (₹)</th></tr></thead><tbody>`;
+        rows.forEach(r => {
+          const cls = r.balance > 0.005 ? 'balance-positive' : (r.balance < -0.005 ? 'balance-negative' : 'balance-zero');
+          const balStr = (r.balance >= 0 ? '+' : '') + r.balance.toFixed(2);
+          html += `<tr class="${cls}"><td>${r.name}</td><td>₹${r.paid.toFixed(2)}</td><td>₹${r.share.toFixed(2)}</td><td class="balance-amount">₹${balStr}</td></tr>`;
+        });
+        html += `</tbody></table>`;
+        container.innerHTML = html;
+        container.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      } catch (err) {
+        alert("Failed to compute balances: " + err.message);
+      }
+    };
+
+    document.getElementById('calcSettleBtn').onclick = async () => {
+      const groupId = document.getElementById('settleGroupName').value.trim();
+      if (!groupId) { alert("Enter group ID"); return; }
+      try {
+        const gSnap = await getDoc(doc(db, 'groups', groupId));
+        if (!gSnap.exists()) { alert("Group not found"); return; }
+        const gData = gSnap.data();
+        const expensesQuery = query(collection(db, 'groups', groupId, 'expenses'), orderBy('createdAt','asc'));
+        const snap = await new Promise((res, rej) => {
+          const unsub = onSnapshot(expensesQuery, s => { unsub(); res(s); }, e => rej(e));
+        });
+        const exps = [];
+        snap.forEach(d => exps.push({ id: d.id, ...d.data() }));
+        const members = (gData.members || []).map(m => (typeof m === 'string') ? { name: m } : m);
+        const memberNames = members.map(m => m.name || m.email || m.uid).filter(Boolean);
+        const compiledExpenses = exps.map(e => ({
+          name: e.name, category: e.category, amount: e.amount, payer: e.payer,
+          members: Array.isArray(e.members) ? e.members : [],
+          shares: Array.isArray(e.shares) ? e.shares : [],
+          date: e.date
+        }));
+        const balancesArr = computeBalancesFromExpenses(memberNames, compiledExpenses);
+        const settlements = computeSettlementsFromBalances(balancesArr);
+        const div = document.getElementById('settlementResult');
+        div.innerHTML = `<h3>💳 Settlement</h3>`;
+        if (!settlements || settlements.length === 0) {
+          div.innerHTML += "<i>Everyone is settled!</i>";
+          return;
+        }
+        settlements.forEach(s => {
+          div.innerHTML += `<div class='settlement'>${s.from} → ${s.to}: ₹${s.amount.toFixed(2)}</div>`;
+        });
+      } catch (err) {
+        alert("Failed to calculate settlement: " + err.message);
+      }
+    };
+
+    // Clear local WASM state (keeps Firestore intact)
+    document.getElementById('clearLocalBtn').onclick = async () => {
+      if (!confirm("This will clear the local WebAssembly in-memory data (WASM). Firestore data will remain). Continue?")) return;
+      try {
+        try { Module.ccall("clearAllData", "void", [], []); } catch (e) { console.warn("clearAllData not available", e); }
+        alert("Local WASM state cleared.");
+        document.getElementById('expenseList').innerHTML = '';
+        document.getElementById('balanceSummary').innerHTML = '';
+        document.getElementById('settlementResult').innerHTML = '';
+      } catch (err) {
+        console.error(err);
+      }
+    };
+
+    // ---------- Expose some helper functions for debugging ----------
+    window._firebaseHelpers = {
+      createGroupFirestore, joinGroup, addExpenseToGroup, joinGroupAndListen, generateShareLink
+    };
+
+    console.log("Firebase + app script loaded");
   </script>
 </body>
 </html>
